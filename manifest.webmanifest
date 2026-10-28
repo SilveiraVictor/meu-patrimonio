@@ -2,64 +2,22 @@
   "id": "./",
   "name": "Meu Patrimônio",
   "short_name": "Patrimônio",
-  "description": "Controle de títulos de investimento e empréstimos pessoais",
+  "description": "Investimentos de renda fixa e empréstimos a pessoas, com dados só no seu aparelho.",
   "lang": "pt-BR",
-  "start_url": "./",
+  "start_url": "./?source=pwa",
   "scope": "./",
   "display": "standalone",
+  "display_override": ["fullscreen", "standalone"],
   "orientation": "portrait",
   "background_color": "#0B1F4B",
   "theme_color": "#0B1F4B",
-  "categories": [
-    "finance",
-    "productivity"
-  ],
   "icons": [
-    {
-      "src": "icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "icon-maskable-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
-    }
+    {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
   ],
   "shortcuts": [
-    {
-      "name": "Novo empréstimo",
-      "short_name": "Empréstimo",
-      "url": "./?novo=emprestimo",
-      "icons": [
-        {
-          "src": "icon-192.png",
-          "sizes": "192x192",
-          "type": "image/png",
-          "purpose": "any"
-        }
-      ]
-    },
-    {
-      "name": "Novo título",
-      "short_name": "Título",
-      "url": "./?novo=investimento",
-      "icons": [
-        {
-          "src": "icon-192.png",
-          "sizes": "192x192",
-          "type": "image/png",
-          "purpose": "any"
-        }
-      ]
-    }
+    {"name": "Novo empréstimo", "url": "./?novo=emprestimo", "icons": [{"src": "icons/icon-192.png", "sizes": "192x192"}]},
+    {"name": "Novo título", "url": "./?novo=investimento", "icons": [{"src": "icons/icon-192.png", "sizes": "192x192"}]}
   ]
 }
