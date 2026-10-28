@@ -1,0 +1,19 @@
+import { html } from './html.js';
+
+const GL = {
+  single: ['Pagamento único', 'Você devolve tudo de uma vez, em uma data combinada (também chamado de parcela única). É o formato comum de um empréstimo rápido entre pessoas, para devolver em algumas semanas. Pode ter juros ou não.'],
+  simple: ['Juros simples', 'Os juros são calculados sempre sobre o valor emprestado, sem "juros sobre juros". É mais fácil de combinar e dá um valor menor que os compostos quando o prazo é longo.'],
+  compound: ['Juros compostos', 'A cada mês, os juros passam a render juros também ("juros sobre juros"). É o padrão do mercado financeiro. O valor final cresce mais rápido com o passar do tempo.'],
+  price: ['Tabela Price', 'Parcelas de valor igual do início ao fim. No começo, a parcela tem mais juros e menos devolução do valor emprestado; com o tempo isso se inverte.'],
+  sac: ['SAC (Sistema de Amortização Constante)', 'A parte do valor emprestado que volta para você é a mesma todo mês. A primeira parcela é a maior e as seguintes diminuem, porque os juros caem junto com o saldo devedor.'],
+  rate: ['Taxa de juros ao mês', 'É o percentual cobrado por mês pelo uso do dinheiro. Exemplo: 2% ao mês sobre R$ 1.000 são R$ 20 de juros por mês.'],
+  late: ['Multa moratória e juros de mora', 'Multa moratória é um percentual cobrado uma única vez quando a parcela atrasa (ex.: 2% de R$ 500 = R$ 10). Juros de mora são juros cobrados pelos dias de atraso, calculados proporcionalmente (mês de 30 dias). Servem para compensar o atraso e incentivar o pagamento em dia. Combine os valores com a pessoa antes de emprestar; percentuais abusivos podem ser contestados, e este app não substitui orientação jurídica.'],
+  anticipate: ['Antecipar parcelas', 'É pagar agora parcelas que só venceriam depois. Como o dinheiro volta antes, os juros delas são descontados: você paga o valor presente, calculado com a taxa do contrato, e não o valor cheio. As demais parcelas continuam iguais.'],
+  amortize: ['Amortização', 'É pagar uma parte do valor emprestado antes do prazo. Isso reduz o saldo devedor e, com ele, os juros futuros. Você escolhe se quer terminar antes (reduzir o prazo) ou pagar parcelas menores (reduzir a parcela).'],
+  pix: ['Chave Pix', 'É o "endereço" que a pessoa usa para receber pagamentos por Pix: pode ser CPF, telefone, e-mail ou uma chave aleatória. Guardar a chave facilita pedir ou conferir o pagamento.'],
+  indexer: ['Indexador e taxa', 'Prefixado: a taxa é fixa e você sabe o valor final desde o início. Pós-fixado: o rendimento acompanha um indicador, como o CDI (% do CDI) ou a Selic, e só pode ser estimado. IPCA+ rende a inflação mais uma taxa fixa.'],
+  grace: ['Carência', 'É o período, contado a partir da aplicação, em que o dinheiro não pode ser resgatado. Passada a carência, o resgate segue a regra do título.'],
+  liquidity: ['Liquidez e resgate', 'Liquidez diária significa poder resgatar a qualquer dia útil, sem perder rendimento. Resgate antecipado com penalidade permite sacar antes do vencimento, mas a instituição desconta uma parte. Alguns títulos só podem ser resgatados no vencimento.'],
+  taxes: ['IR e IOF no resgate', 'O Imposto de Renda (IR) incide sobre o rendimento, não sobre o dinheiro que você aplicou, e é regressivo: 22,5% até 180 dias, 20% de 181 a 360, 17,5% de 361 a 720 e 15% acima disso. LCI, LCA, CRI e CRA são isentas para pessoa física. O IOF só aparece em resgates com menos de 30 dias, também sobre o rendimento: começa em 96% no 1º dia e chega a 0% no 30º (vale para CDB, LC e Tesouro). O banco desconta os dois antes de creditar. O app estima, e você pode informar os valores do extrato para ver o resultado real.'],
+};
+export const glossary = (key) => html`<details class="why"><summary>${GL[key][0]}: o que é?</summary><p>${GL[key][1]}</p></details>`;
