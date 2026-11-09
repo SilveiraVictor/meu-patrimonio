@@ -19,13 +19,24 @@ export async function start() {
   const apply = () => shell.applyPreferences(app.preferences.get(), dark.matches);
   apply(); dark.addEventListener('change', apply);
   const controller = createController({ app, store, shell, views, actions: { ...commonActions(ctx), ...comboActions(ctx), ...investmentActions(ctx), ...loanActions(ctx), ...settingsActions(ctx),
+    'app.reload'() { location.reload(); },
     async 'app.install'() { const p = app.runtime.prompt; if (!p) return; p.prompt(); try { await p.userChoice; } catch { /* recusou */ } app.runtime.prompt = null; await controller.render(); } } });
   const on = (q) => matchMedia(q).matches;
   app.runtime = { prompt: null, ios: /iphone|ipad|ipod/i.test(navigator.userAgent), installed: () => on('(display-mode: standalone)') || on('(display-mode: fullscreen)') || navigator.standalone === true };
   const refreshHome = () => { const s = store.get(); if (s.tab === 'home' && !isDetail(s)) controller.render(); };
   addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); app.runtime.prompt = e; refreshHome(); });
   addEventListener('appinstalled', () => { app.runtime.prompt = null; refreshHome(); });
-  if ('serviceWorker' in navigator && /^https?:/.test(location.protocol)) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  if ('serviceWorker' in navigator && /^https?:/.test(location.protocol)) {
+    // Só avisa quando já havia um service worker no controle: na primeira instalação não há "versão nova".
+    const hadController = !!navigator.serviceWorker.controller; let warned = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!hadController || warned) return; warned = true;
+      ctx.toast('Nova versão do app disponível.', { action: { label: 'Atualizar', name: 'app.reload' }, duration: 60000 });
+    });
+    addEventListener('load', () => navigator.serviceWorker.register('sw.js').then((reg) => {
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) reg.update().catch(() => {}); });
+    }).catch(() => {}));
+  }
   await controller.render();
   // Atalhos do PWA: ?novo=emprestimo e ?novo=investimento
   const shortcut = new URLSearchParams(location.search).get('novo');

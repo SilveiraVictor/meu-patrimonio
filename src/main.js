@@ -12,13 +12,16 @@ import { demoData } from './application/demoData.js';
 import { KEYS, DEFAULT_SETTINGS, DocumentStore, createRepositories, settingsPorts } from './infrastructure/storage.js';
 import { initStorage } from './infrastructure/bootstrap.js';
 import { backupCodec } from './infrastructure/backupCodec.js';
+import { safeStorage } from './infrastructure/safeStorage.js';
 
-export async function createApp({ storage = globalThis.localStorage, clock = { today: () => startOfDay() }, newId } = {}) {
+export async function createApp({ storage, clock = { today: () => startOfDay() }, newId } = {}) {
+  const safe = storage ? { storage, persistent: true } : safeStorage();
+  storage = safe.storage;
   const boot = await initStorage({ storage, seed: () => demoData(clock.today()) });
   const repos = createRepositories(storage), settings = settingsPorts(new DocumentStore(storage, KEYS.settings, DEFAULT_SETTINGS));
   const count = async (repo, test) => (await repo.list()).filter(test).length;
   return {
-    boot, clock, settings,
+    boot, clock, settings, persistent: safe.persistent,
     loans: new LoanService({ loans: repos.loans, people: repos.people, clock, newId }),
     investments: new InvestmentService({ investments: repos.investments, loans: repos.loans, institutions: repos.institutions, indicators: settings.indicators, clock, newId }),
     people: personService({ repo: repos.people, usageCount: (id) => count(repos.loans, (l) => l.personId === id), newId }),

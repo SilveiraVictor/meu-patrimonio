@@ -12,14 +12,14 @@ export const scheduleOf = (loan) => loan.remaining > 0
 
 export const totalInstallments = (loan) => loan.payments.length + loan.remaining;
 
-/** Retorna um novo empréstimo com a próxima parcela paga. */
+/** Retorna um novo empréstimo com a próxima parcela paga por inteiro (com os encargos de `today`). O registro é montado campo a campo para não copiar as marcas de linha residual. */
 export function payNext(loan, today) {
   const [next] = scheduleOf(loan);
   if (!next) throw new Error('Empréstimo já quitado');
   const charges = lateCharges(loan, next, today);
   return {
     ...loan,
-    payments: [...loan.payments, { ...next, number: loan.payments.length + 1, paidOn: today, charges: charges.total > 0 ? charges : null }],
+    payments: [...loan.payments, { number: loan.payments.length + 1, due: next.due, principal: next.principal, interest: next.interest, payment: next.payment, balance: next.balance, paidOn: today, charges: charges.total > 0 ? charges : null }],
     balance: next.balance,
     remaining: loan.remaining - 1,
     nextDue: addMonths(loan.nextDue, 1),
@@ -35,9 +35,11 @@ export function statusOf(loan, today) {
 
 export function figuresOf(loan, today) {
   const future = scheduleOf(loan);
-  const chargesPaid = loan.payments.reduce((a, p) => a + (p.charges?.total ?? 0), 0);
-  const paid = loan.payments.reduce((a, p) => a + p.payment, 0) + chargesPaid + loan.events.reduce((a, e) => a + e.amount, 0);
-  const toPay = future.reduce((a, r) => a + r.payment, 0);
-  const chargesDue = future.reduce((a, r) => a + lateCharges(loan, r, today).total, 0);
-  return { paid, toPay, chargesDue, total: paid - chargesPaid + toPay };
+  const partials = loan.partials ?? [];
+  const sum = (xs, f) => xs.reduce((a, x) => a + f(x), 0);
+  const payCharges = sum(loan.payments, (p) => p.charges?.total ?? 0), partCharges = sum(partials, (p) => p.applied.fine + p.applied.lateInterest);
+  const paid = sum(loan.payments, (p) => p.payment) + payCharges + sum(partials, (p) => p.amount) + sum(loan.events, (e) => e.amount);
+  const toPay = sum(future, (r) => r.payment);
+  const chargesDue = sum(future, (r) => lateCharges(loan, r, today).total);
+  return { paid, toPay, chargesDue, total: paid - payCharges - partCharges + toPay };
 }

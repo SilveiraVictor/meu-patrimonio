@@ -10,7 +10,8 @@ export function collectionModel(loan, today) {
   const late = rows.filter((r) => r.due < today), picked = late.length ? late : [rows[0]], n = totalInstallments(loan);
   const items = picked.map((r) => {
     const number = loan.payments.length + rows.indexOf(r) + 1, charges = lateCharges(loan, r, today), days = diffDays(today, r.due);
-    return { number, label: loan.system === 'single' ? 'Pagamento único' : `Parcela ${number}/${n}`, short: loan.system === 'single' ? 'Única' : String(number),
+    const rest = r.residual ? ' (saldo)' : '';
+    return { number, label: (loan.system === 'single' ? 'Pagamento único' : `Parcela ${number}/${n}`) + rest, short: loan.system === 'single' ? 'Única' : `${number}${r.residual ? '*' : ''}`,
       due: r.due, amount: r.payment, charges, days, value: r.payment + charges.total, state: days < 0 ? 'late' : days === 0 ? 'today' : 'upcoming' };
   });
   return { items, total: sum(items, (i) => i.value), fine: sum(items, (i) => i.charges.fine), lateInterest: sum(items, (i) => i.charges.interest) };
@@ -18,6 +19,7 @@ export function collectionModel(loan, today) {
 
 export const receiptItems = (loan) => [
   ...loan.payments.map((p) => ({ type: 'installment', date: p.paidOn, amount: p.payment + (p.charges?.total ?? 0), payment: p })),
+  ...(loan.partials ?? []).map((p) => ({ type: 'partial', date: p.paidOn, amount: p.amount, partial: p })),
   ...loan.events.map((e) => ({ type: 'event', date: e.date, amount: e.amount, event: e })),
 ].sort((a, b) => a.date - b.date);
 
@@ -30,8 +32,9 @@ export function statusModel(loan, today) {
   const f = figuresOf(loan, today), future = scheduleOf(loan), n = totalInstallments(loan);
   const table = [
     ...loan.payments.map((p) => ({ label: String(p.number), due: p.due, amount: p.payment + (p.charges?.total ?? 0), state: 'paid' })),
+    ...(loan.partials ?? []).map((p) => ({ label: `${p.number}*`, due: p.due, amount: p.amount, state: 'partial' })),
     ...loan.events.map((e) => ({ label: /^Antecipou/.test(e.label) ? 'Antec.' : 'Amort.', due: e.date, amount: e.amount, state: 'paid' })),
-    ...future.map((r, k) => ({ label: String(loan.payments.length + k + 1), due: r.due, amount: r.payment, state: r.due < today ? 'late' : 'upcoming' })),
+    ...future.map((r, k) => ({ label: `${loan.payments.length + k + 1}${r.residual ? '*' : ''}`, due: r.due, amount: r.payment, state: r.due < today ? 'late' : 'upcoming' })),
   ];
   return { ...f, lent: loan.principal, withInterest: loan.monthlyRate > 0, paidCount: loan.payments.length, installments: n, settled: loan.remaining === 0,
     nextDue: loan.nextDue, nextPayment: future[0]?.payment ?? 0, toPayNow: f.toPay + f.chargesDue, table };

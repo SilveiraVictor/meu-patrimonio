@@ -3,7 +3,7 @@ import { ico } from '../components.js';
 import { confirmSheet } from './common.js';
 import { kindDef } from '../combo.js';
 import { loanFormView, readLoan, loanPreview, segmentButtons, MODES, SYSTEMS_OPT, CAPS } from '../forms/loanForm.js';
-import { prepayView, prepayRows, simulatorView, simulatorResults, lateResult, peopleListView, personFormView, personFields, sendView, documentHtml } from '../forms/loanSheets.js';
+import { paymentView, paymentRows, surplusOptions, prepayView, prepayRows, simulatorView, simulatorResults, lateResult, peopleListView, personFormView, personFields, sendView, documentHtml } from '../forms/loanSheets.js';
 import { exportDocument } from '../documentExport.js';
 import { glossary } from '../glossary.js';
 import { navigate } from '../navigation.js';
@@ -15,7 +15,7 @@ import { digits } from '../../domain/shared/text.js';
 
 export function loanActions(ctx) {
   const { app, shell, store } = ctx;
-  let LS = null, A = null, M = null, SIM = { options: [] };
+  let LS = null, A = null, M = null, P = null, SIM = { options: [] };
   const SM = { v: 1000, t: 2, m: 3, d: 30, mu: 2, mo: 1, a: 15, pTouched: false, draft: null };
   const close = () => { ctx.form = null; shell.closeSheet(); };
   const goTo = async (tab) => { const before = store.get(); store.dispatch(navigate.go, tab); if (store.get() === before) await ctx.render(); };
@@ -60,6 +60,22 @@ export function loanActions(ctx) {
     try { if (A.tab === 'ant') return await app.loans.previewAnticipation(A.id, A.n); const v = Number(A.val); return v > 0 ? await app.loans.previewAmortization(A.id, Math.min(v, A.loan.balance), A.mode) : null; } catch { return null; }
   }
   async function drawPrepay() { A.loan = (await app.loans.detail(A.id)).loan; shell.openSheet(String(prepayView({ loan: A.loan, A, preview: await prepayPreview() }))); }
+
+  // ===== registrar pagamento (data e valor)
+  const readPay = () => { const d = shell.formData(); return { paidOn: d.date ? new Date(`${d.date}T00:00`) : null, amount: d.amount === '' ? NaN : Number(d.amount), surplus: P.mode }; };
+  async function refreshPay() {
+    if (!P) return;
+    const date = shell.formData().date, paidOn = date ? new Date(`${date}T00:00`) : null;
+    if (!P.touched && paidOn) { try { shell.patch('#f-amount', { value: (await app.loans.paymentDue(P.id, paidOn)).total.toFixed(2) }); } catch { /* sem valor devido */ } }
+    const pv = await app.loans.previewPayment(P.id, readPay());
+    shell.patch('#pay-opt', { html: String(surplusOptions(pv, P.mode)) }); shell.patch('#ppv', { html: String(paymentRows(pv)) }); shell.patch('#p-s', { disabled: !pv.ok });
+  }
+  async function openPayment(id) {
+    const d = await app.loans.detail(id), t = app.clock.today(), n = d.loan.payments.length + 1;
+    P = { id, mode: 'term', touched: false }; ctx.form = { refresh: refreshPay };
+    shell.openSheet(String(paymentView({ name: d.name, label: d.loan.system === 'single' ? 'pagamento único' : `parcela ${n}/${d.total}`, dateIso: isoDate(t), maxIso: isoDate(t), amount: (d.next.payment + (d.charges?.total ?? 0)).toFixed(2) })));
+    await refreshPay();
+  }
 
   // ===== simulador
   const readSim = () => { const d = shell.formData(), g = (k) => Number(d[k]) || 0; return { value: g('sv'), ratePct: g('st'), installments: Math.round(g('sm')), days: Math.round(g('sd')), lateDays: g('sa'), finePct: g('smu'), latePct: g('smo'), installment: Number(d.sp) || 0 }; };
@@ -113,7 +129,14 @@ export function loanActions(ctx) {
       LS = null; close(); if (store.get().personId) await ctx.render(); else await goTo('loans'); ctx.toast('Empréstimo salvo');
     },
     'loan.applyRevision': () => applyRevision(LS.pending),
-    async 'loan.pay'(id) { await app.loans.registerPayment(id); await afterChange(); ctx.toast('Pagamento registrado', { undo: true }); },
+    'pay.open': (id) => openPayment(id), 'pay.input': () => refreshPay(), 'pay.mode'(mode) { P.mode = mode; return refreshPay(); },
+    'pay.amount'(v) { P.touched = v !== ''; return refreshPay(); },
+    async 'pay.confirm'() {
+      let r; try { r = await app.loans.registerPayment(P.id, readPay()); } catch (e) { ctx.toast(e.message); return; }
+      const s = r.summary, brlText = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      P = null; close(); await afterChange();
+      ctx.toast(s.kind === 'partial' ? `Pagamento parcial registrado. Ficam ${brlText(s.unpaid.total)} em aberto` : s.kind === 'surplus' ? (s.surplus.change > 0.005 ? `Pagamento registrado. Devolva ${brlText(s.surplus.change)} de troco` : 'Pagamento registrado. Sobra abatida do saldo') : 'Pagamento registrado', { undo: true });
+    },
     async undo() { if (await app.loans.undo()) { shell.closeSheet(); await ctx.render(); ctx.toast('Alteração desfeita'); } },
     async 'loan.askDelete'(id) { const d = await app.loans.detail(id); confirmSheet(ctx, { title: 'Excluir empréstimo?', message: `O empréstimo de ${d.name} e o histórico dele serão removidos. Isso não pode ser desfeito.`, label: 'Excluir', action: 'loan.delete', arg: id }); },
     async 'loan.delete'(id) { await app.loans.remove(id); close(); const s = store.get(); if (s.loanFromPerson) store.dispatch(navigate.openPerson, s.loanFromPerson); else await goTo('loans'); ctx.toast('Excluído'); },

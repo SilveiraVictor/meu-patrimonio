@@ -11,6 +11,6 @@ export function createLoan(i) {
     system: i.system, monthlyRate: i.system === 'none' ? 0 : i.monthlyRate ?? 0,
     balance: i.principal, remaining: n, nextDue: i.firstDue,
     issuedOn: single ? i.issuedOn : null, compounding: single ? i.compounding ?? 'simple' : null,
-    fine: i.fine ?? 0, lateRate: i.lateRate ?? 0, payments: [], events: [], plan: null,
+    fine: i.fine ?? 0, lateRate: i.lateRate ?? 0, payments: [], partials: [], events: [], plan: null,
   };
 }

@@ -11,6 +11,11 @@ const loanTitle = (l, f) => l.description || (l.system === 'single' ? `Pagamento
 
 const itemLine = (i, f) => `• ${i.label}: ${f.money(i.amount)}, vencimento ${f.date(i.due)} (${stateText(i)}${i.charges.total > 0 ? `; multa moratória ${f.money(i.charges.fine)} + juros de mora ${f.money(i.charges.interest)} = *${f.money(i.value)}*` : ''})`;
 
+const partLines = (q, f) => [
+  ...(q.applied.fine > 0.005 ? [`Multa moratória: ${f.money(q.applied.fine)}`] : []), ...(q.applied.lateInterest > 0.005 ? [`Juros de mora: ${f.money(q.applied.lateInterest)}`] : []),
+  ...(q.applied.interest > 0.005 ? [`Juros da parcela: ${f.money(q.applied.interest)}`] : []), ...(q.applied.principal > 0.005 ? [`Amortização do principal: ${f.money(q.applied.principal)}`] : []),
+  `Saldo da parcela em aberto: ${f.money(q.unpaid.total)}`];
+
 export const emptyMessage = { collection: 'Este empréstimo já está quitado. Não há cobrança pendente.', receipt: 'Nenhum pagamento registrado ainda.', status: 'Não há empréstimos em aberto para esta pessoa.' };
 
 /** Um renderizador por tipo e escopo; novos tipos de comunicação não alteram os existentes. */
@@ -24,10 +29,12 @@ export const messageRenderers = {
       ...(many ? ['', `*Total a pagar: ${f.money(m.total)}*`] : []), ...pix(c), ...end].join('\n');
   },
   receipt: (m, c) => {
-    const f = c.fmt, { item, installments } = m, p = item.payment, inst = item.type === 'installment';
-    const what = inst ? (c.loan.system === 'single' ? 'pagamento único' : `parcela ${p.number} de ${installments}`) : item.event.label.toLowerCase();
+    const f = c.fmt, { item, installments } = m, p = item.payment, inst = item.type === 'installment', part = item.type === 'partial', q = item.partial;
+    const what = inst ? (c.loan.system === 'single' ? 'pagamento único' : `parcela ${p.number} de ${installments}`)
+      : part ? (c.loan.system === 'single' ? 'pagamento parcial do pagamento único' : `pagamento parcial da parcela ${q.number} de ${installments}`) : item.event.label.toLowerCase();
     return ['*Recibo de pagamento*', '', `Recebi de ${c.debtor.name} a quantia de ${f.money(item.amount)}, referente a ${what} do empréstimo${ds(c.loan)}.`, '',
       `Data do recebimento: ${f.date(item.date)}`,
+      ...(part ? partLines(q, f) : []),
       ...(inst ? [`Valor da parcela: ${f.money(p.payment)}`, ...(p.charges ? [`Multa moratória: ${f.money(p.charges.fine)}`, `Juros de mora (${p.charges.days} dias): ${f.money(p.charges.interest)}`] : []), `Saldo devedor após o pagamento: ${f.money(p.balance)}`] : []),
       '', 'Obrigado!', ...sign(c)].join('\n');
   },
@@ -45,7 +52,7 @@ export const messageRenderers = {
 };
 
 const base = (c) => [...(c.creditor?.name ? [['Credor', c.creditor.name]] : []), ['Devedor', c.debtor.name], ...(c.debtor.cpf ? [['CPF do devedor', cpfMask(c.debtor.cpf)]] : [])];
-const stateLabel = { late: 'Atrasada', today: 'Vence hoje', upcoming: 'A vencer', paid: 'Paga' };
+const stateLabel = { late: 'Atrasada', today: 'Vence hoje', upcoming: 'A vencer', paid: 'Paga', partial: 'Parcial' };
 
 /** Modelo do documento (papel): o desenho em tela, imagem ou PDF fica na camada de apresentação. */
 export const documentRenderers = {
@@ -53,13 +60,15 @@ export const documentRenderers = {
     note: c.loan.description ? `Empréstimo: ${c.loan.description}` : '',
     rows: [...base(c), ...(m.fine + m.lateInterest > 0 ? [['Multa moratória', f.money(m.fine)], ['Juros de mora', f.money(m.lateInterest)]] : []), ...(c.creditor?.pix ? [['Chave Pix para pagamento', c.creditor.pix]] : [])],
     table: { head: ['Parcela', 'Vencimento', 'Valor', 'Situação'], body: m.items.map((i) => [i.short, (f.shortDate ?? f.date)(i.due), f.money(i.amount), stateLabel[i.state]]) } }; },
-  receipt: (m, c) => { const f = c.fmt, { item } = m, p = item.payment, inst = item.type === 'installment';
+  receipt: (m, c) => { const f = c.fmt, { item } = m, p = item.payment, inst = item.type === 'installment', q = item.partial;
     return { title: 'Recibo de pagamento', sub: `Emitido em ${f.longDate(c.today)}`, sign: true, hero: { label: 'Valor recebido', value: f.money(item.amount) },
       note: messageRenderers.receipt(m, c).split('\n')[2],
       rows: [...base(c), ['Data do recebimento', f.longDate(item.date)],
+        ...(item.type === 'partial' ? [['Vencimento da parcela', f.longDate(q.due)], ...(q.applied.fine > 0.005 ? [['Multa moratória', f.money(q.applied.fine)]] : []), ...(q.applied.lateInterest > 0.005 ? [['Juros de mora', f.money(q.applied.lateInterest)]] : []),
+          ['Juros da parcela', f.money(q.applied.interest)], ['Amortização do principal', f.money(q.applied.principal)], ['Saldo da parcela em aberto', f.money(q.unpaid.total)]] : []),
         ...(inst ? [['Vencimento da parcela', f.longDate(p.due)], ['Amortização do principal', f.money(p.principal)], ['Juros', f.money(p.interest)],
           ...(p.charges ? [['Multa moratória', f.money(p.charges.fine)], [`Juros de mora (${p.charges.days} dias de atraso)`, f.money(p.charges.interest)]] : []), ['Saldo devedor após o pagamento', f.money(p.balance)]]
-          : item.event.savedInterest > 0.005 ? [['Juros economizados', f.money(item.event.savedInterest)]] : [])] }; },
+          : item.type === 'event' && item.event.savedInterest > 0.005 ? [['Juros economizados', f.money(item.event.savedInterest)]] : [])] }; },
   status: (m, c) => { const f = c.fmt;
     return { title: 'Situação do empréstimo', sub: `Posição em ${f.longDate(c.today)}`, note: c.loan.description,
       hero: m.settled ? { label: 'Situação', value: 'Quitado' } : { label: 'Valor a pagar', value: f.money(m.toPayNow) },

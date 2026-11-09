@@ -2,6 +2,7 @@ import { html, raw } from '../html.js';
 import { alert, button, card, field, footer, heading, select, seg, sheetHeader, act } from '../components.js';
 import { glossary } from '../glossary.js';
 import { kindDef } from '../combo.js';
+import { scheduleOf } from '../../domain/loan/loan.js';
 import { brl, shortDate } from '../format.js';
 
 const SMALL = 'min-height:44px;font-size:calc(14px*var(--fs))';
@@ -69,3 +70,33 @@ export function sendView({ M, fmt, creditor, receipts }) {
 /** Prévia do papel (sempre clara: é o que vira imagem, PDF ou impressão). */
 export const documentHtml = (d) => html`<div class="paper"><div class="ph"><b>${d.title}</b><span>${d.sub}</span></div>${d.hero ? html`<div class="hb"><span>${d.hero.label}</span><b>${d.hero.value}</b></div>` : ''}${d.note ? html`<p class="pn">${d.note}</p>` : ''}
   <div class="pk">${d.rows.map(([a, b]) => html`<div><span>${a}</span><b>${b}</b></div>`)}</div>${d.table ? html`<div class="sc"><table><tr>${d.table.head.map((h) => html`<th>${h}</th>`)}</tr>${d.table.body.map((r) => html`<tr>${r.map((c) => html`<td>${c}</td>`)}</tr>`)}</table></div>` : ''}${d.sign ? html`<div class="sg">Assinatura do credor</div>` : ''}<div class="pf">Gerado pelo app Meu Patrimônio</div></div>`;
+
+// ----- registrar pagamento (data e valor)
+export function paymentView({ name, label, dateIso, maxIso, amount }) {
+  return html`${sheetHeader('Registrar pagamento')}<p class="m" style="margin:-6px 0 12px">${name} · ${label}</p>
+    ${field({ name: 'date', label: 'Data em que a pessoa pagou', type: 'date', value: dateIso, max: maxIso, input: 'pay.input', hint: 'Multa e juros de mora são calculados até esta data.' })}
+    ${field({ name: 'amount', label: 'Valor pago (R$)', type: 'number', value: amount, input: 'pay.amount', inputmode: 'decimal', min: 0, step: 'any' })}
+    <div id="pay-opt"></div><div class="pv" id="ppv"></div>
+    ${footer(button('Confirmar pagamento', { id: 'p-s', action: 'pay.confirm', disabled: true }))}`;
+}
+/** Escolha do destino da sobra (só aparece quando o valor passa do devido e ainda há parcelas). */
+export function surplusOptions(pv, mode) {
+  const s = pv?.ok ? pv.summary : null; if (!s || s.kind !== 'surplus' || !s.surplus.amortizable) return '';
+  const opt = (v, t, d) => html`<button class="opt" aria-pressed="${String(mode === v)}"${act({ action: 'pay.mode', arg: v })}><div class="t">${t}</div><div class="m">${d}</div></button>`;
+  return html`<p class="sub" style="margin:0 0 8px">O valor passa do que era devido: sobram ${brl(s.surplus.amount)}. O que fazer com a sobra?</p>
+    ${opt('term', 'Reduzir o prazo', 'Mantém a parcela e termina antes; os juros futuros caem.')}${opt('installment', 'Reduzir a parcela', 'Mantém o prazo e diminui o valor; os juros futuros caem.')}${opt('nominal', 'Abater sem desconto de juros', 'Abate as últimas parcelas pelo valor cheio. Use se vocês combinaram assim.')}`;
+}
+export function paymentRows(pv) {
+  if (!pv.ok) return html`${pv.message}`;
+  const { due, summary: s, loan } = pv, c = due.charges, a = s.applied, u = s.unpaid, sp = s.surplus;
+  const head = html`${row(due.row.residual ? 'Saldo da parcela' : 'Parcela', brl(due.row.payment))}${c.fine > 0.005 ? row('Multa moratória', brl(c.fine)) : ''}${c.interest > 0.005 ? row(`Juros de mora (${c.days} dias)`, brl(c.interest)) : ''}${row('Total devido nesta data', brl(due.total))}${row('Valor pago', brl(s.amount))}`;
+  if (s.kind === 'full') return html`${head}${row('Resultado', 'Pagamento integral')}`;
+  if (s.kind === 'surplus') {
+    const next = scheduleOf(loan)[0];
+    return html`${head}${row('Sobra', brl(sp.amount))}${sp.applied > 0.005 ? (loan.remaining ? html`${row(sp.mode === 'installment' ? 'Nova parcela' : 'Parcela (mantida)', brl(next.payment))}${row('Parcelas restantes', loan.remaining)}` : row('Resultado', 'Quitado')) : ''}
+      ${sp.savedInterest > 0.005 ? row('Juros economizados', brl(sp.savedInterest), 'color:var(--ok)') : ''}${sp.change > 0.005 ? row('Troco a devolver', brl(sp.change)) : ''}
+      ${sp.amortizable ? '' : html`<p class="m" style="margin:8px 0 0">Não há parcelas para abater, então a sobra é troco.</p>`}`;
+  }
+  return html`${head}${row('Pagamento parcial', `ficam ${brl(u.total)} em aberto`)}${a.fine + a.lateInterest > 0.005 ? row('Abatido de multa e mora', brl(a.fine + a.lateInterest)) : ''}${row('Abatido dos juros da parcela', brl(a.interest))}${row('Abatido do principal', brl(a.principal))}
+    <p class="m" style="margin:8px 0 0">O restante continua na mesma parcela, com o vencimento original. Os juros do contrato não são recalculados; sobre o que ficou em aberto a mora continua, sem nova multa.</p>`;
+}

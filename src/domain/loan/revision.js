@@ -1,6 +1,6 @@
 import { addMonths } from '../shared/dates.js';
 import { buildSchedule } from './amortization.js';
-import { totalInstallments } from './loan.js';
+import { scheduleOf, totalInstallments } from './loan.js';
 
 const SCHEDULE_KEYS = ['principal', 'installments', 'monthlyRate', 'system', 'firstDue', 'issuedOn', 'compounding'];
 const same = (a, b) => a instanceof Date && b instanceof Date ? +a === +b
@@ -25,6 +25,7 @@ export function reviseLoan(loan, changes) {
   const { next, changed } = revisionImpact(loan, changes);
   const meta = { ...loan, personId: changes.personId ?? loan.personId, description: changes.description ?? loan.description, fine: changes.fine ?? loan.fine, lateRate: changes.lateRate ?? loan.lateRate };
   if (!changed) return meta;
+  if (scheduleOf(loan)[0]?.residual) throw new Error('Registre o restante da parcela em aberto antes de alterar as condições do empréstimo');
   const k = loan.payments.length, isSingle = next.system === 'single';
   if ((loan.system === 'single') !== isSingle && (k || loan.events.length)) throw new Error('Depois de registrar pagamentos não dá para trocar entre parcelado e pagamento único');
   if (!(next.principal > 0)) throw new RangeError('O valor emprestado deve ser maior que zero');

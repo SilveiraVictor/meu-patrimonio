@@ -1,5 +1,5 @@
 // GERADO por tools/build-sw.mjs. Não edite à mão: rode "npm run build:sw".
-const CACHE = 'mp-v6';
+const CACHE = 'mp-v7';
 const PRECACHE = [
   "./",
   "icons/apple-touch-icon.png",
@@ -31,6 +31,7 @@ const PRECACHE = [
   "src/domain/loan/factory.js",
   "src/domain/loan/lateFees.js",
   "src/domain/loan/loan.js",
+  "src/domain/loan/payment.js",
   "src/domain/loan/portfolio.js",
   "src/domain/loan/prepayment.js",
   "src/domain/loan/revision.js",
@@ -47,6 +48,7 @@ const PRECACHE = [
   "src/infrastructure/bootstrap.js",
   "src/infrastructure/jsonRepository.js",
   "src/infrastructure/legacyV1.js",
+  "src/infrastructure/safeStorage.js",
   "src/infrastructure/storage.js",
   "src/main.js",
   "src/presentation/actions/common.js",

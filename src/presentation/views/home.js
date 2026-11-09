@@ -24,10 +24,11 @@ function upcomingItem(e) {
 
 /** Tela inicial: view pura (modelo → HTML), testável sem navegador. */
 export const homeView = {
-  async load(app) { return { ...(await app.home.overview()), install: installState(app.runtime) }; },
+  async load(app) { return { ...(await app.home.overview()), install: installState(app.runtime), persistent: app.persistent !== false }; },
   render(m) {
     const late = m.overdueLoans;
     return html`<h1>Meu Patrimônio</h1><p class="sub">O que vence e o que você tem a receber.</p>
+      ${m.persistent ? '' : alert('O armazenamento deste navegador não está disponível, então os dados não serão mantidos ao fechar a página.')}
       ${m.install === 'prompt' ? alert(html`<span>Instale o app para abrir em tela cheia e usar sem internet.</span>${button('Instalar o app', { style: 'min-height:44px;font-size:calc(14px*var(--fs))', action: 'app.install' })}`, { tone: 'info', col: true }) : ''}
       ${m.install === 'ios' ? alert('Para instalar no iPhone: toque em Compartilhar e depois em Adicionar à Tela de Início.', { tone: 'info' }) : ''}
       ${m.hasDemo ? alert(html`<span>Você está vendo dados de exemplo.</span>${button('Apagar exemplos e começar', { style: 'min-height:44px;font-size:calc(14px*var(--fs))', action: 'clearDemo.confirm' })}`, { tone: 'info', col: true }) : ''}

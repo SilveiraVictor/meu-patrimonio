@@ -9,6 +9,7 @@ import { simulateOptions, simulateLate } from '../domain/loan/simulation.js';
 import { personKind } from '../domain/registry/person.js';
 import { displayName } from '../domain/registry/registry.js';
 import { receiptItems } from '../domain/communication/models.js';
+import { dueAt, payInstallment } from '../domain/loan/payment.js';
 
 /** Casos de uso de empréstimo. Depende só de portas, nunca de DOM ou localStorage. */
 export class LoanService {
@@ -19,7 +20,28 @@ export class LoanService {
   async #update(id, fn) { this.snapshot = await this.loans.list(); const next = fn(await this.#load(id), this.clock.today()); await this.loans.save(next); return next; }
 
   async create(input) { const loan = createLoan({ ...input, id: this.newId() }); await this.loans.save(loan); return loan; }
-  registerPayment(id) { return this.#update(id, payNext); }
+  /** Valor devido pela próxima parcela se for paga em `paidOn` (multa e mora até essa data). */
+  async paymentDue(id, paidOn) { return dueAt(await this.#load(id), paidOn); }
+  #checkPayment(paidOn, amount) {
+    if (!(paidOn instanceof Date) || Number.isNaN(+paidOn)) throw new Error('Informe a data do pagamento');
+    if (paidOn > this.clock.today()) throw new Error('A data do pagamento não pode ser futura');
+    if (!(amount > 0)) throw new Error('Informe o valor pago');
+  }
+  /** Prévia do pagamento com data e valor: não salva nada. input = { paidOn, amount, surplus }. */
+  async previewPayment(id, input) {
+    try {
+      const loan = await this.#load(id); this.#checkPayment(input.paidOn, input.amount);
+      const due = dueAt(loan, input.paidOn), r = payInstallment(loan, input);
+      return { ok: true, due, summary: r.summary, loan: r.loan };
+    } catch (e) { return { ok: false, message: e.message }; }
+  }
+  /** Sem `input`, paga a parcela inteira hoje. Devolve { loan, summary } e alimenta o desfazer. */
+  async registerPayment(id, input) {
+    const loan = await this.#load(id), today = this.clock.today(), paidOn = input?.paidOn ?? today;
+    const amount = input?.amount ?? dueAt(loan, paidOn).total; this.#checkPayment(paidOn, amount);
+    const r = payInstallment(loan, { paidOn, amount, surplus: input?.surplus });
+    this.snapshot = await this.loans.list(); await this.loans.save(r.loan); return r;
+  }
   anticipate(id, count) { return this.#update(id, (l, t) => anticipate(l, count, t)); }
   amortize(id, amount, mode) { return this.#update(id, (l, t) => amortize(l, amount, mode, t)); }
   revise(id, changes) { return this.#update(id, (l) => reviseLoan(l, changes)); }
@@ -55,7 +77,7 @@ export class LoanService {
     const all = (await this.loans.list()).filter((l) => l.personId === personId), t = this.clock.today(), ppl = await this.#people();
     return { person: ppl.get(personId), name: ppl.name(personId), summary: personSummary(all, t), items: all.map((l) => this.#item(l, ppl, t)) };
   }
-  async receiptOptions(id) { return receiptItems(await this.#load(id)).map((it, index) => ({ index, label: it.type === 'installment' ? `Parcela ${it.payment.number}` : it.event.label, amount: it.amount, date: it.date })); }
+  async receiptOptions(id) { return receiptItems(await this.#load(id)).map((it, index) => ({ index, label: it.type === 'installment' ? `Parcela ${it.payment.number}` : it.type === 'partial' ? `Pagamento parcial da parcela ${it.partial.number}` : it.event.label, amount: it.amount, date: it.date })); }
 
   async previewAnticipation(id, count) { return previewAnticipation(await this.#load(id), count, this.clock.today()); }
   async previewAmortization(id, amount, mode) { return previewAmortization(await this.#load(id), amount, mode); }

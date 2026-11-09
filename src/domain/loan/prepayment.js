@@ -5,6 +5,7 @@ import { diffDays } from '../shared/dates.js';
 function guard(loan) {
   if (loan.system === 'single') throw new Error('Pagamento único não permite antecipar nem amortizar');
   if (loan.remaining <= 0) throw new Error('Empréstimo já quitado');
+  if (scheduleOf(loan)[0]?.residual) throw new Error('Registre o restante da parcela em aberto antes de antecipar ou amortizar');
 }
 const rebuild = (loan, balance, remaining) =>
   buildSchedule(loan.system, { principal: balance, installments: remaining, monthlyRate: loan.monthlyRate, firstDue: loan.nextDue });
@@ -52,5 +53,27 @@ function apply(loan, p, label, today) {
   return p.remaining === 0 ? { ...loan, balance: 0, remaining: 0, plan: null, events }
     : { ...loan, balance: loan.balance - p.amount, remaining: p.remaining, plan: null, events };
 }
-export const amortize = (loan, amount, mode, today) =>
-  apply(loan, previewAmortization(loan, amount, mode), `Amortizou (${mode === 'term' ? 'reduziu prazo' : 'reduziu parcela'})`, today);
+export const amortize = (loan, amount, mode, today, label) =>
+  apply(loan, previewAmortization(loan, amount, mode), label ?? `Amortizou (${mode === 'term' ? 'reduziu prazo' : 'reduziu parcela'})`, today);
+
+/**
+ * Abate `amount` das últimas parcelas pelo valor cheio, sem desconto de juros (quando as partes combinam assim):
+ * remove parcelas inteiras do fim e reduz a última restante em principal e juros, na mesma proporção.
+ * Juros economizados = 0. O que passar da soma das parcelas é troco. Σ parcelas antes − Σ depois = valor abatido.
+ */
+export function nominalPrepay(loan, amount, today, label = 'Abateu parcelas (sem desconto de juros)') {
+  guard(loan);
+  if (!(amount > 0)) throw new RangeError('Valor de abatimento inválido');
+  const rows = scheduleOf(loan), kept = rows.map((r) => ({ ...r })), total = rows.reduce((a, r) => a + r.payment, 0);
+  const applied = Math.min(amount, total); let left = applied;
+  while (left > 0.005 && kept.length) {
+    const last = kept.at(-1);
+    if (last.payment <= left + 0.005) { left -= last.payment; kept.pop(); }
+    else { const f = (last.payment - left) / last.payment; last.principal *= f; last.interest *= f; last.payment *= f; left = 0; }
+  }
+  const tail = rows.reduce((a, r) => a + r.principal, 0) - kept.reduce((a, r) => a + r.principal, 0);
+  const plan = kept.map((r, k) => ({ ...r, balance: k === kept.length - 1 ? 0 : Math.max(0, r.balance - tail) }));
+  const events = [...loan.events, { label, date: today, amount: applied, nominal: applied, savedInterest: 0 }];
+  const next = plan.length ? { ...loan, balance: Math.max(0, loan.balance - tail), remaining: plan.length, plan, events } : { ...loan, balance: 0, remaining: 0, plan: null, events };
+  return { loan: next, applied, change: Math.max(0, amount - applied) };
+}

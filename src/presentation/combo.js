@@ -10,7 +10,7 @@ const KINDS = {
   institution: {
     service: (app) => app.institutions, newLabel: 'outra instituição', register: 'Cadastrar instituição', done: 'Instituição cadastrada',
     fields: [['name', 'Nome da instituição', {}], ['cnpj', 'CNPJ (opcional)', { placeholder: '00.000.000/0000-00', inputmode: 'numeric', input: 'mask', arg: 'cnpj' }],
-      ['note', 'Observação (opcional)', { placeholder: 'Ex.: matriz, agencia X', hint: 'Ajuda a diferenciar instituições com o mesmo nome.', maxlength: 60 }]],
+      ['note', 'Observação (opcional)', { placeholder: 'Ex.: matriz, agência de Caetité', hint: 'Ajuda a diferenciar instituições com o mesmo nome.', maxlength: 60 }]],
     lines: (e, uses) => [[e.cnpj && `CNPJ ${cnpjMask(e.cnpj)}`, e.note], [`${uses} título${uses === 1 ? '' : 's'}`]],
     label: (e) => [e.name, e.cnpj && `CNPJ ${cnpjMask(e.cnpj)}`, e.note].filter(Boolean).join(' · '),
   },

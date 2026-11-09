@@ -4,10 +4,11 @@ import { APP_INFO } from '../appInfo.js';
 import { runtimeInfo } from '../runtimeInfo.js';
 
 export const settingsView = {
-  async load(app) { const prefs = app.preferences.get(); return { prefs, counts: await app.backup.counts(), hasDemo: await app.backup.hasDemo(), runtime: await runtimeInfo({ prefs, info: APP_INFO }) }; },
-  render({ prefs, counts, hasDemo, runtime }) {
+  async load(app) { const prefs = app.preferences.get(); return { persistent: app.persistent !== false, prefs, counts: await app.backup.counts(), hasDemo: await app.backup.hasDemo(), runtime: await runtimeInfo({ prefs, info: APP_INFO }) }; },
+  render({ persistent, prefs, counts, hasDemo, runtime }) {
     const sp = 'margin:6px 0 16px', gap = html`<div style="height:10px"></div>`;
     return html`<h1>Ajustes</h1><p class="sub">Aparência, acessibilidade, backup e dados guardados neste aparelho.</p>
+      ${persistent ? '' : alert('O armazenamento deste navegador não está disponível, então os dados não serão mantidos ao fechar a página.')}
       ${heading('Aparência e acessibilidade')}${card(html`<div class="lbl" style="margin-bottom:6px">Tema</div>${seg([['auto', 'Automático'], ['light', 'Claro'], ['dark', 'Escuro']], prefs.theme, 'pref.theme')}<p class="m" style="${sp}">Automático segue o tema do aparelho.</p>
         <div class="lbl" style="margin-bottom:6px">Tamanho do texto</div>${seg([['normal', 'Padrão'], ['large', 'Grande'], ['xlarge', 'Muito grande']], prefs.textSize, 'pref.textSize')}<p class="m" style="${sp}">Exemplo: parcela de R$ 1.234,56 vence em 10/12. A barra inferior mantém o tamanho para caber na tela.</p>
         ${switchRow({ id: 'a-hc', label: 'Alto contraste', checked: prefs.highContrast, desc: 'Textos e bordas mais fortes, sem fundos coloridos.', action: 'pref.highContrast', arg: String(!prefs.highContrast) })}

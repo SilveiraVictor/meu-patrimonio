@@ -116,7 +116,7 @@ export function investmentActions(ctx) {
       const e = id ? await app.institutions.get(id) : { name: '', cnpj: '', note: '' };
       shell.openSheet(String(html`${sheetHeader(id ? 'Editar instituição' : 'Nova instituição', { back: 'institutions.open' })}
         ${field({ name: 'name', label: 'Nome', value: e.name })}${field({ name: 'cnpj', label: 'CNPJ (opcional)', value: e.cnpj, placeholder: '00.000.000/0000-00', inputmode: 'numeric', input: 'mask', arg: 'cnpj' })}
-        ${field({ name: 'note', label: 'Observação (opcional)', value: e.note, maxlength: 60, placeholder: 'Ex.: matriz, agencia X', hint: 'Ajuda a diferenciar instituições com o mesmo nome.' })}
+        ${field({ name: 'note', label: 'Observação (opcional)', value: e.note, maxlength: 60, placeholder: 'Ex.: matriz, agência de Caetité', hint: 'Ajuda a diferenciar instituições com o mesmo nome.' })}
         ${id ? button('Excluir instituição', { variant: 'sec', style: 'color:var(--bad);margin-top:6px', action: 'institutions.delete', arg: id }) : ''}${footer(button('Salvar', { action: 'institutions.save', arg: id ?? '' }))}`));
     },
     async 'institutions.save'(id) {

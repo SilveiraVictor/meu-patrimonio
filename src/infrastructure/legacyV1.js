@@ -42,7 +42,7 @@ export function fromLegacyV1(raw) {
     payments: (l.paid ?? []).map((p) => ({ number: p.k, due: D(p.due), principal: p.am, interest: p.j, payment: p.pm, balance: p.bal, paidOn: D(p.paidOn),
       charges: p.enc ? { days: p.enc.d, fine: p.enc.multa, interest: p.enc.mora, total: p.enc.total } : null })),
     events: (l.log ?? []).map((g) => ({ label: g.t, date: D(g.d), amount: g.v, savedInterest: g.eco ?? 0 })),
-    plan: null, ...demo(l),
+    partials: [], plan: null, ...demo(l),
   }));
 
   return { investments, loans, people, institutions, indicators: { ...DEFAULT_INDICATORS, ...(raw.ind ?? {}) }, creditor: { name: raw.me ?? '', pix: raw.pix ?? '' } };

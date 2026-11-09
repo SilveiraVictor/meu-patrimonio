@@ -44,10 +44,12 @@ export function createShell({ win = window, doc = document } = {}) {
     render(markup, key) { el.app.innerHTML = markup; if (key !== lastKey) { win.scrollTo(0, 0); lastKey = key; } },
     setNav: (state) => { el.nav.innerHTML = String(navBar(state)); },
     setFab({ visible, label }) { el.fab.hidden = !visible; el.fab.innerHTML = String(icon('plus')) + label.replace(/[<>&]/g, ''); },
-    toast(message, { undo = false } = {}) {
+    /** `undo` mostra "Desfazer"; `action: { label, name }` mostra um botão qualquer (ex.: "Atualizar"); `duration` em ms. */
+    toast(message, { undo = false, action = null, duration = 5000 } = {}) {
       el.toast.textContent = ''; const s = doc.createElement('span'); s.textContent = message; el.toast.append(s);
-      if (undo) { const b = doc.createElement('button'); b.textContent = 'Desfazer'; b.dataset.action = 'undo'; el.toast.append(b); }
-      el.toast.style.display = 'flex'; clearTimeout(timer); timer = setTimeout(() => { el.toast.style.display = 'none'; }, 5000);
+      const a = undo ? { label: 'Desfazer', name: 'undo' } : action;
+      if (a) { const b = doc.createElement('button'); b.textContent = a.label; b.dataset.action = a.name; el.toast.append(b); }
+      el.toast.style.display = 'flex'; clearTimeout(timer); timer = setTimeout(() => { el.toast.style.display = 'none'; }, duration);
     },
     openSheet(markup, { small = false } = {}) {
       el.toast.style.display = 'none'; el.sheet.className = small ? 'small' : 'full'; el.backdrop.className = small ? 'small' : 'full';
